@@ -1,0 +1,4 @@
+config PROC_DEMO
+    tristate "Demo for proc fs"
+    help
+        Demo for how to use proc fs
