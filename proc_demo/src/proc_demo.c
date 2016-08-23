@@ -3,15 +3,18 @@
 #include <linux/proc_fs.h>	/* Necessary because we use proc fs */
 #include <linux/seq_file.h>	/* for seq_file */
 #include <linux/uaccess.h>
+#include <linux/slab.h>
 
-#define SIMPLE_READWRITE 	"simple"
 
 MODULE_AUTHOR("Philippe Reynes");
 MODULE_LICENSE("GPL");
 
-static unsigned long counter = 0;
-static char simple[128] = "Tristan Xiao's hello world";
-#if 0
+
+#define CONFIG_SEQ_READ_WRITE
+#define CONFIG_SIMPLE_READ_WRITE
+
+#ifdef CONFIG_SEQ_READ_WRITE
+#define SEQ_READWRITE 	"seq"
 static char hello[128] = "Tristan Xiao's hello world";
 /**
  * This function is called at the beginning of a sequence.
@@ -22,19 +25,9 @@ static char hello[128] = "Tristan Xiao's hello world";
  */
 static void *my_seq_start(struct seq_file *s, loff_t *pos)
 {
-
-	/* beginning a new sequence ? */	
-	if ( *pos == 0 )
-	{	
-		/* yes => return a non null value to begin the sequence */
-		return &counter;
-	}
-	else
-	{
-		/* no => it's the end of the sequence, return end to stop reading */
-		*pos = 0;
+	if (*pos > 10)
 		return NULL;
-	}
+	return pos;
 }
 
 /**
@@ -44,10 +37,10 @@ static void *my_seq_start(struct seq_file *s, loff_t *pos)
  */
 static void *my_seq_next(struct seq_file *s, void *v, loff_t *pos)
 {
-	unsigned long *tmp_v = (unsigned long *)v;
-	(*tmp_v) += 3;
 	(*pos)++;
-	return NULL;
+	if (*pos > 10)
+		return NULL;
+	return pos;
 }
 
 /**
@@ -56,6 +49,7 @@ static void *my_seq_next(struct seq_file *s, void *v, loff_t *pos)
  */
 static void my_seq_stop(struct seq_file *s, void *v) {
 	/* nothing to do, we use a static value in start() */
+	//kfree(v);
 }
 
 /**
@@ -64,14 +58,11 @@ static void my_seq_stop(struct seq_file *s, void *v) {
  */
 static int my_seq_show(struct seq_file *s, void *v)
 {
-	/*
-	loff_t *spos = (loff_t *) v;
+	int i = *(loff_t*)v;
 
-	char a[4] = {};
-
-	memcpy(a, hello , 3);
-	*/
+	//printk(KERN_ALERT"%s v %d\n", __func__, 1000);
 	seq_printf(s, "%s\n", hello);
+	//seq_putc(s, *(hello+i));
 	return 0;
 }
 
@@ -86,23 +77,23 @@ static struct seq_operations my_seq_ops = {
 	.show  = my_seq_show
 };
 
-static int my_simple_open(struct inode *inode, struct file *file)
+static int my_seq_open(struct inode *inode, struct file *file)
 {
-	//return seq_open(file, &my_seq_ops);
-	return single_open(file, simple_show, NULL);
-};
+	return seq_open(file, &my_seq_ops);
+}
 
-
-static struct file_operations my_file_ops = {
+static struct file_operations my_seq_file_ops = {
 	.owner   = THIS_MODULE,
-	.open    = my_simple_open,
-	.write	 = simple_write,
+	.open    = my_seq_open,
 	.read    = seq_read,
 	.llseek  = seq_lseek,
 	.release = seq_release
 };
 #endif
 
+#ifdef CONFIG_SIMPLE_READ_WRITE
+#define SIMPLE_READWRITE 	"simple"
+static char simple[128] = "Tristan Xiao's hello world";
 static int simple_show(struct seq_file *s, void *v)
 {
 	seq_printf(s, "%s\n", simple);
@@ -137,6 +128,7 @@ static struct file_operations my_simple_file_ops = {
 	.llseek  = seq_lseek,
 	.release = seq_release
 };
+#endif
 
 /**
  * This function is called when the module is loaded
@@ -144,10 +136,20 @@ static struct file_operations my_simple_file_ops = {
  */
 int init_module(void)
 {
-	struct proc_dir_entry *entry;
 
-	entry = proc_create(SIMPLE_READWRITE, 0, NULL, &my_simple_file_ops);
+#ifdef CONFIG_SIMPLE_READ_WRITE
+	{
+	struct proc_dir_entry *simple_entry;
+	simple_entry = proc_create(SIMPLE_READWRITE, 0, NULL, &my_simple_file_ops);
+	}
+#endif
 
+#ifdef CONFIG_SEQ_READ_WRITE
+	{
+	struct proc_dir_entry *seq_entry;
+	seq_entry = proc_create(SEQ_READWRITE, 0, NULL, &my_seq_file_ops);
+	}
+#endif
 	return 0;
 }
 
@@ -157,6 +159,11 @@ int init_module(void)
  */
 void cleanup_module(void)
 {
+#ifdef CONFIG_SIMPLE_READ_WRITE
 	remove_proc_entry(SIMPLE_READWRITE, NULL);
+#endif
+#ifdef CONFIG_SEQ_READ_WRITE
+	remove_proc_entry(SEQ_READWRITE, NULL);
+#endif
 }
 

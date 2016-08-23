@@ -42,10 +42,10 @@ define Build/Compile
 endef
 
 # note: must use TAB in this section:
-define KernelPackage/$(PKG_NAME)/install
+#define KernelPackage/$(PKG_NAME)/install
 #	$(INSTALL_DIR) $(1)/etc
 #	$(INSTALL_DIR) $(1)/etc/init.d
 #	$(INSTALL_BIN) ./files/$(PKG_NAME).init $(1)/etc/init.d/$(PKG_NAME)
-endef
+#endef
 
 $(eval $(call KernelPackage,$(PKG_NAME)))
